@@ -26,6 +26,10 @@ Currently coreutils is just a module.  Download it and include it in your projec
 
 Depending on the structure of your project, you may need to create an "__init__.py" file.
 
+### Python Compatibility
+
+Currently coreutils only works with Python 3.  A version-agnostic update will be released very soon.
+
 ## Docuentation
 
 Currently just this readme file, but planning on publishing in-depth documentation on readthedocs.io
