@@ -1,7 +1,26 @@
+import sys
 import unittest
 from datetime import datetime
 import tempfile
+from decimal import Decimal
 from coreutils import *
+
+
+# make Python 2 unittest compatible with Python 3
+if sys.version_info.major < 3:
+    unittest.TestCase.assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
+
+
+class ZeroBasedTest(unittest.TestCase):
+
+    def setUp(self):
+        set_zero_based(True)
+
+
+class OneBasedTest(unittest.TestCase):
+
+    def setUp(self):
+        set_zero_based(False)
 
 
 class Collector(object):
@@ -9,9 +28,9 @@ class Collector(object):
     def __init__(self):
         self.collector = []
 
-    def __call__(self, *objects, sep='', end='\n', file=None, flush=False):
+    def __call__(self, *args, **kwargs):
         # intended to make this object a callable replacement to print()
-        self.collector.append((*objects, {'sep': sep, 'end': end, 'file': file, 'flush': flush}))
+        self.collector.append((args, kwargs))
 
 
 class TestCollector(unittest.TestCase):
@@ -24,7 +43,19 @@ class TestCollector(unittest.TestCase):
         self.assertEqual(len(print_replacement.collector), 1)
 
 
-class TestVerboseFunction(unittest.TestCase):
+class TestZeroBased(ZeroBasedTest):
+
+    def test_zero_based(self):
+        self.assertEqual(get_zero_based(), True)
+
+
+class TestOneBased(OneBasedTest):
+
+    def test_one_based(self):
+        self.assertEqual(get_zero_based(), False)
+
+
+class TestVerboseFunction(ZeroBasedTest):
 
     def test_set_and_get(self):
         set_verbose(True)
@@ -51,7 +82,7 @@ class TestVerboseFunction(unittest.TestCase):
         self.assertFalse(get_verbose())
 
 
-class TestFlatten(unittest.TestCase):
+class TestFlatten(ZeroBasedTest):
 
     def test_intended_cases(self):
         i = [[1], [2], [3]]
@@ -95,23 +126,7 @@ input_list = [
 ]
 
 
-class TestCond(unittest.TestCase):
-
-    def test_basic_operation(self):
-        global input_list
-
-        condition = Cond(1, eq, 'Spain')
-
-        self.assertTrue(len(list(filter(condition(), input_list))), 4)
-
-        # or you can do this
-
-        filter_cond = condition()
-
-        self.assertTrue(len(list(filter(filter_cond, input_list))), 4)
-
-
-class TestOperatorFunctions(unittest.TestCase):
+class TestOperatorFunctions(ZeroBasedTest):
 
     def test_em_all(self):
         self.assertTrue(eq(1, 1))
@@ -144,7 +159,7 @@ class TestOperatorFunctions(unittest.TestCase):
         self.assertFalse(lte('b', 'a'))
 
 
-class TestCond(unittest.TestCase):
+class TestCond(ZeroBasedTest):
 
     def test_basic_operation(self):
         c = Cond(0, eq, 1)
@@ -267,7 +282,8 @@ class TestCond(unittest.TestCase):
 
         self.assertEqual(c.__repr__(), 'Cond(0, eq, 1)')
 
-class TestKey(unittest.TestCase):
+
+class TestKey(ZeroBasedTest):
 
     def test_basic_operation(self):
         rec = ['David', '52', 127.98]
@@ -345,7 +361,7 @@ class TestKey(unittest.TestCase):
         self.assertEqual(sorted_list[-1], ['01335-EJ-3213682', 'France', 'Red', 133.94, 18])
 
 
-class TestFullRecordKey(unittest.TestCase):
+class TestFullRecordKey(ZeroBasedTest):
 
     def test_using_sorted(self):
         global input_list
@@ -356,7 +372,7 @@ class TestFullRecordKey(unittest.TestCase):
         self.assertEqual(sorted_list[-1], ['99860-ZW-4745487', 'Poland', 'Blue', 92.48, 3])
 
 
-class TestReformat(unittest.TestCase):
+class TestReformat(ZeroBasedTest):
 
     def test_basic_operation(self):
         rec = ['94970PT4045197', 'Spain', 'Blue', '377.73', 19]
@@ -375,7 +391,7 @@ class TestReformat(unittest.TestCase):
         self.assertEqual(ref.transform(rec), 377.73)
 
 
-class TestAbstractChainable(unittest.TestCase):
+class TestAbstractChainable(ZeroBasedTest):
 
     def test_chain(self):
         a = AbstractChainable()
@@ -394,11 +410,11 @@ class TestAbstractChainable(unittest.TestCase):
         self.assertNotEqual(id(a), id(s))
         self.assertEqual(a, s.parent)
         self.assertIsInstance(s, SortChainable)
-        self.assertEqual(sp, s.sort_params[0].args)
+        self.assertEqual(sp, s.key.args)
 
         record = ('not_used', 'f1', '2', 3)
         key_func1 = k()
-        key_func2 = s.sort_params[0]()
+        key_func2 = s.key()
         key_val1 = key_func1(record)
         key_val2 = key_func2(record)
 
@@ -457,7 +473,6 @@ class TestAbstractChainable(unittest.TestCase):
         self.assertEqual(len(filtered), 0)
         self.assertEqual(filtered, [])
 
-
     def test_transform(self):
         a = AbstractChainable()
         t = a.transform(Reformat)
@@ -514,7 +529,7 @@ class TestAbstractChainable(unittest.TestCase):
         self.assertRaisesRegex(NotImplementedError, "concrete subclasses must implement __iter__()", list, a)
 
 
-class TestIterReader(unittest.TestCase):
+class TestIterReader(ZeroBasedTest):
 
     def test_none(self):
         i = IterReader(None)
@@ -571,7 +586,7 @@ class TestIterReader(unittest.TestCase):
         r = i.show(print_function=c2, row_number=True)
 
         for n, rec in enumerate(c2.collector):
-            rec_no = int(rec[0].split(':')[0])
+            rec_no = int(rec[0][0].split(':')[0])
             self.assertEqual(n + 1, rec_no)
 
         self.assertEqual(r, i)
@@ -618,7 +633,6 @@ class TestIterReader(unittest.TestCase):
         self.assertEqual(len(c3.collector), 5)
         self.assertEqual(h, i)
 
-
     def test_count(self):
         global input_list
 
@@ -626,7 +640,7 @@ class TestIterReader(unittest.TestCase):
         i = IterReader(input_list)
         n = i.count(print_function=c)
 
-        self.assertEqual(c.collector[0][0], 'count %s' % len(input_list))
+        self.assertEqual(c.collector[0][0][0], 'count %s' % len(input_list))
         self.assertEqual(n, i)
 
         set_verbose(False)
@@ -642,12 +656,11 @@ class TestIterReader(unittest.TestCase):
         c3 = Collector()
         n = i.count(print_function=c3)
 
-        self.assertEqual(c3.collector[0][0], 'count %s' % len(input_list))
+        self.assertEqual(c3.collector[0][0][0], 'count %s' % len(input_list))
         self.assertEqual(n, i)
 
 
-
-class TestFileReader(unittest.TestCase):
+class TestFileReader(ZeroBasedTest):
 
     def test_basic_operation(self):
         global input_list
@@ -663,7 +676,7 @@ class TestFileReader(unittest.TestCase):
             self.assertEqual(lines, recs)
 
 
-class TestCsvReader(unittest.TestCase):
+class TestCsvReader(ZeroBasedTest):
 
     def test_basic_operation(self):
         global input_list
@@ -684,7 +697,7 @@ class TestCsvReader(unittest.TestCase):
             self.assertEqual(input_list_str[1:], recs)
 
 
-class TestSortChainable(unittest.TestCase):
+class TestSortChainable(ZeroBasedTest):
 
     def test_sort_with_key(self):
         global input_list
@@ -716,15 +729,30 @@ class TestSortChainable(unittest.TestCase):
         self.assertEqual(s_list[0], first)
         self.assertEqual(s_list[-1], last)
 
+    def test_sort_reverse(self):
+        global input_list
 
-class TestFilterChainable(unittest.TestCase):
+        s = IterReader(input_list).sort(2, 3, reverse=True)
+
+        self.assertEqual(len(input_list), len(s))
+
+        last = ['89874-KA-6452420', 'Turkey', 'Blue', 79.54, 15]
+        first = ['01335-EJ-3213682', 'France', 'Red', 133.94, 18]
+
+        s_list = list(s)
+
+        self.assertEqual(s_list[0], first)
+        self.assertEqual(s_list[-1], last)
+
+
+class TestFilterChainable(ZeroBasedTest):
 
     def test_filter(self):
         global input_list
 
         s = IterReader(input_list).filter(2, eq, 'Red')
 
-        expected =[
+        expected = [
             ['01335-EJ-3213682', 'France', 'Red', 133.94, 18],
             ['71662-GO-4658117', 'Norway', 'Red', 103.54, 1]
         ]
@@ -751,7 +779,6 @@ class TestFilterChainable(unittest.TestCase):
 
         self.assertEqual(list(IterReader(data).grep(r'9.*2.*sed')), ['09/02/2019 sed do eiusmod tempor incididunt'])
 
-
     def test_exception(self):
         global input_list
 
@@ -773,7 +800,7 @@ class TestFilterChainable(unittest.TestCase):
         self.assertEqual(s_list[0], expected)
 
 
-class TeestTransformChainable(unittest.TestCase):
+class TeestTransformChainable(ZeroBasedTest):
 
     def test_noop_transform(self):
         global input_list
@@ -785,12 +812,12 @@ class TeestTransformChainable(unittest.TestCase):
     def test_real_transform(self):
         global input_list
 
-        class TestReformat(Reformat):
+        class UnitTestReformat(Reformat):
 
             def transform(self, in_rec):
-                return f'{in_rec[1]}-{in_rec[4]:02d}', in_rec[2], in_rec[3]
+                return '{}-{:02d}'.format(in_rec[1], in_rec[4]), in_rec[2], in_rec[3]
 
-        t_list = list(IterReader(input_list).transform(TestReformat))
+        t_list = list(IterReader(input_list).transform(UnitTestReformat))
 
         self.assertEqual(t_list[0][0], 'Georgia-07')
         self.assertEqual(t_list[0][1], 'Green')
@@ -809,7 +836,7 @@ class TeestTransformChainable(unittest.TestCase):
         global input_list
 
         def rearrange(f):
-            return f'{f[0][0:5]}-{f[0][5:8]}-{f[0][9:]}', f[2], f[1], f[4], f[3]
+            return '{}-{}-{}'.format(f[0][0:5], f[0][5:8], f[0][9:]), f[2], f[1], f[4], f[3]
 
         i = IterReader(input_list).transform(rearrange)
         r = list(i)[0]
@@ -828,7 +855,7 @@ class TeestTransformChainable(unittest.TestCase):
         self.assertRaisesRegex(RuntimeError, "compatible only with a function or Reformat", list, i)
 
 
-class TestReduceChainable(unittest.TestCase):
+class TestReduceChainable(ZeroBasedTest):
 
     def test_reduce_with_uniq(self):
         global input_list
@@ -861,6 +888,132 @@ class TestReduceChainable(unittest.TestCase):
         self.assertEqual(len(i.filter(2, eq, 1)), 15)
         self.assertEqual(len(i.filter(2, eq, 2)), 3)
         self.assertEqual(len(i.filter(2, eq, 3)), 1)
+
+
+class TestMoreOneBasedChains(OneBasedTest):
+
+    def test_sort(self):
+        global input_list
+
+        i = IterReader(input_list).sort(3, 1, 2, 4)
+        list_i = list(i)
+
+        self.assertEqual(list_i[0], ['19017-HN-3601064', 'Spain', 'Blue', 120.24, 19])
+        self.assertEqual(list_i[-1], ['71662-GO-4658117', 'Norway', 'Red', 103.54, 1])
+
+    def test_filter(self):
+        global input_list
+
+        i = IterReader(input_list).filter(2, eq, 'Germany')
+
+        self.assertEqual(len(i), 3)
+
+    def test_grep(self):
+        data = [
+            '08/31/2019 Lorem ipsum dolor sit amet',
+            '09/01/2019 consectetur adipiscing elit',
+            '09/02/2019 sed do eiusmod tempor incididunt',
+            '09/03/2019 ut labore et dolore magna aliqua'
+        ]
+
+        i = IterReader(data).grep('ore')
+        expected = [
+            '08/31/2019 Lorem ipsum dolor sit amet',
+            '09/03/2019 ut labore et dolore magna aliqua',
+        ]
+
+        self.assertEqual(len(i), 2)
+        self.assertEqual(list(i), expected)
+
+        self.assertEqual(list(IterReader(data).grep(r'9.*2.*sed')), ['09/02/2019 sed do eiusmod tempor incididunt'])
+
+    def test_transform(self):
+        global input_list
+
+        class MultiplyNumbers(Reformat):
+            def transform(self, in_rec):
+                return [in_rec[3] * 2, in_rec[4] * 2]
+
+        li = list(IterReader(input_list).transform(MultiplyNumbers))
+
+        self.assertEqual(li[0], [190.1, 14])
+        self.assertEqual(li[-1], [240.48, 38])
+
+    def test_cut(self):
+        global input_list
+
+        i = IterReader(input_list).cut(5, 1, 3, 2)
+        list_i = list(i)
+
+        self.assertEqual([7, '59693-IL-9641352', 'Green', 'Georgia'], list_i[0])
+        self.assertEqual([19, '19017-HN-3601064', 'Blue', 'Spain'], list_i[-1])
+
+    def test_reduce(self):
+        global input_list
+
+        class Summary(AbstractReducer):
+            def initialize(self, key):
+                self.sum = 0
+                self.count = 0
+
+            def reduce(self, key, in_rec):
+                self.count += 1
+                self.sum += in_rec[3]
+
+            def output(self, key, prev_rec):
+                avg = self.sum / self.count
+                return {'count': self.count, 'sum': self.sum, 'avg': avg}
+
+        i = IterReader(input_list)
+        ir = list(i.reduce(Summary))[0]
+        sum_item_3 = sum([x[3] for x in input_list])
+        avg_item_3 = sum_item_3 / len(input_list)
+
+        self.assertEqual(len(ir), 3)
+        self.assertEqual(len(i), ir['count'])
+        self.assertEqual(ir['sum'], sum_item_3)
+        self.assertEqual(ir['avg'], avg_item_3)
+
+    def test_filter_cut_sort_reduce(self):
+        global input_list
+
+        class CountryAvg(AbstractReducer):
+            def initialize(self, key):
+                self.count = 0
+                self.sum = Decimal()
+                self.country = key[0]
+
+            def key_change(self, prev_key, curr_key):
+                self.count = 0
+                self.sum = Decimal()
+                self.country = curr_key[0]
+
+            def reduce(self, key, in_rec):
+                self.count += 1
+                self.sum += Decimal(str(in_rec[1]))
+
+            def output(self, key, prev_rec):
+                return [self.country, self.sum / self.count, self.sum, self.count]
+
+        i = IterReader(input_list).filter(3, is_in, ('Blue', 'Green')).cut(2, 4).sort(1, 2).reduce(CountryAvg, 1)
+        country_avgs = {r[0]: r[1] for r in i}
+        sums = {}
+        counts = {}
+
+        for rec in filter(lambda r: r[2] in ['Blue', 'Green'], input_list):
+            if rec[1] in sums:
+                sums[rec[1]] += Decimal(str(rec[3]))
+                counts[rec[1]] += 1
+            else:
+                sums[rec[1]] = Decimal(str(rec[3]))
+                counts[rec[1]] = 1
+
+        avgs = {k: sums[k] / counts[k] for k in sums}
+
+        for k in avgs:
+            self.assertEqual(avgs[k], country_avgs[k], k)
+
+        self.assertEqual(set(country_avgs.keys()), set(avgs.keys()))
 
 
 if __name__ == '__main__':
