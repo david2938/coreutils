@@ -24,7 +24,7 @@ and frameworks.
 
 Currently coreutils is just a module.  Download it and include it in your project directory.
 
-Depending on the structure of your project, you may need to create an "\_\_init\_\_.py" file.
+Depending on the structure of your project, you may need to create an `__init__.py` file.
 
 ### Python Compatibility
 
