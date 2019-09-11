@@ -28,7 +28,13 @@ Depending on the structure of your project, you may need to create an "__init__.
 
 ### Python Compatibility
 
-Currently coreutils only works with Python 3.  A version-agnostic update will be released very soon.
+Coreutils works with both Python 2 (version 2.7 and up) and 3 (version 3.7 and up).  Earlier Python 2.x and 3.x 
+probably will work, but you'll have to test them yourself.  This is easy to do, just run the unit tests with your
+installed Python version:
+
+```
+$ python test_coreutils.py
+```
 
 ## Docuentation
 
